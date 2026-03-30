@@ -14,14 +14,6 @@ import { Plus, Trash2, Upload, Download, Receipt, Package, Wallet, BarChart3, Cl
 // To enable live cloud sync, add these env vars in your deployment:
 // VITE_SUPABASE_URL=...
 // VITE_SUPABASE_ANON_KEY=...
-let createClientFn = null;
-try {
-  // eslint-disable-next-line no-undef
-  createClientFn = (await import('@supabase/supabase-js')).createClient;
-} catch (e) {
-  createClientFn = null;
-}
-
 const STORAGE_KEY = 'nokta_live_bookkeeping_v2';
 const MYR = new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' });
 
@@ -141,13 +133,20 @@ export default function NoktaSenjaSupabaseDashboard() {
   }, [data]);
 
   useEffect(() => {
-    const url = import.meta.env.VITE_SUPABASE_URL;
-    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    if (createClientFn && url && key) {
-      const client = createClientFn(url, key);
-      setSupabase(client);
-      setSyncState('ready');
+    async function initSupabase() {
+      try {
+        const url = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_SUPABASE_URL : undefined;
+        const key = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_SUPABASE_ANON_KEY : undefined;
+        if (!url || !key) return;
+        const mod = await import('@supabase/supabase-js');
+        const client = mod.createClient(url, key);
+        setSupabase(client);
+        setSyncState('ready');
+      } catch (e) {
+        console.warn('Supabase not initialised', e);
+      }
     }
+    initSupabase();
   }, []);
 
   async function loadFromSupabase() {
@@ -335,7 +334,7 @@ export default function NoktaSenjaSupabaseDashboard() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {syncBadge}
-            {supabase ? <Button variant="outline" onClick={loadFromSupabase}><Database className="mr-2 h-4 w-4" />Connect Cloud</Button> : null}
+            {supabase ? <Button variant="outline" onClick={loadFromSupabase}><Database className="mr-2 h-4 w-4" />Connect Cloud</Button> : <Button variant="outline" disabled><Database className="mr-2 h-4 w-4" />Cloud Not Set</Button>}
             <Button variant="outline" onClick={exportCsv}><Download className="mr-2 h-4 w-4" />CSV</Button>
             <Button variant="outline" onClick={exportBackup}><Download className="mr-2 h-4 w-4" />Backup</Button>
             <input ref={importRef} type="file" className="hidden" accept="application/json" onChange={importBackup} />
